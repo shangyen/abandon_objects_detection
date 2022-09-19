@@ -1,0 +1,139 @@
+import tensorflow as tf
+from tensorflow.keras import datasets, models, layers, utils, activations
+from tensorflow.keras import losses, optimizers, metrics
+from keras.utils.vis_utils import plot_model
+import numpy as np
+import matplotlib.pyplot as plt
+import cv2 as cv
+import os
+
+(my_x_train, my_y_train), (my_x_test, my_y_test) = datasets.mnist.load_data()
+
+# Check data types of my_x_train, my_y_train, my_x_test, and my_y_test
+type(my_x_train)
+
+# Check data types of my_x_train, my_y_train, my_x_test, and my_y_test
+my_x_train.shape
+
+# Define parameters
+my_num_classes = 10         # number of classes
+my_img_height  = 28         # image size (my_img_height  x my_img_width )
+my_img_width   = 28         
+
+# Show selected training image in a gray scale 
+my_imgIndex = 1234
+plt.imshow(my_x_train[my_imgIndex], cmap='gray', )
+plt.title('Training image %d' % (my_imgIndex))
+
+# Show selected test image in a gray scale 
+my_imgIndex = 4321
+plt.imshow(my_x_test[my_imgIndex], cmap='gray', )
+plt.title('Test image %d' % (my_imgIndex))
+
+# Define a function. This function shows multiple images
+def my_imshow_subplot(my_imshow_height, my_imshow_width, my_x, my_y =[], my_start_index=0, my_font_size= 12):
+    my_axes=[];  my_fig = plt.figure();  nimg_imshow = my_imshow_height * my_imshow_width
+    for my_i in range(my_imshow_height):
+        for my_j in range(my_imshow_width):
+            my_idx = my_j + my_i * my_imshow_width
+            # plot it 
+            if (my_idx + my_start_index < len(my_x)):
+              my_axes.append(my_fig.add_subplot(my_imshow_height, my_imshow_width, my_idx + 1))
+              plt.imshow(my_x[my_idx + my_start_index], cmap = 'gray')
+              my_axes[my_idx].axes.xaxis.set_visible(False); my_axes[my_idx].axes.yaxis.set_visible(False)
+            # set title if my_y is available
+            if (my_idx + my_start_index < len(my_y)):
+              my_p_vec = my_y[my_idx + my_start_index]
+              # find which is the largest probability
+              my_p_result = np.argmax(my_p_vec);  my_p_prob = my_p_vec[my_p_result] 
+              plt.title("%1d (%2d%%)"%(my_p_result, my_p_prob*100), fontsize=my_font_size)
+    my_fig.suptitle('Image Index Range(%d:%d)'%(my_start_index, my_start_index + nimg_imshow))
+
+# plot it by calling the above function 
+my_imshow_height = 3; 
+my_imshow_width = 6; 
+my_imshow_subplot(my_imshow_height ,my_imshow_width, my_x_train, [], my_start_index=20000, my_font_size=12)
+
+# reshape image data by adding a dimension of channel
+my_x_train_c1 = my_x_train.reshape(60000, 28, 28, 1)
+my_x_test_c1 = my_x_test.reshape(10000, 28, 28, 1)
+
+# categorical
+my_y_train_categ = utils.to_categorical(my_y_train, 10)
+my_y_test_categ  = utils.to_categorical(my_y_test,  10)
+
+# Show selected categorical training data
+print(my_y_train_categ[0:3])
+
+# build a Convolutional Neural Network
+ 
+my_model = models.Sequential()
+
+my_model.add(layers.Input((28, 28, 1)))
+my_model.add(layers.Conv2D(filters=4,kernel_size=3,padding='same',activation='relu'))
+my_model.add(layers.MaxPooling2D(pool_size=(2, 2)))
+my_model.add(layers.GlobalAveragePooling2D())
+my_model.add(layers.Dense(10, activation='softmax'))
+
+my_model.compile(loss=losses.categorical_crossentropy, optimizer = optimizers.SGD(),metrics = ['accuracy'])
+
+# build a Convolutional Neural Network
+ 
+my_inputs = layers.Input(shape=(28, 28, 1))
+x = layers.Conv2D(filters=4,kernel_size=3,padding='same',activation='relu')(my_inputs)
+x = layers.MaxPooling2D(pool_size=(2, 2))(x)
+x = layers.GlobalAveragePooling2D()(x)
+x = layers.Dense(10, activation='softmax')(x)
+my_model = models.Model(inputs = my_inputs, outputs = x) 
+
+my_model.compile(loss=losses.categorical_crossentropy, \
+              optimizer = optimizers.SGD(),metrics = ['accuracy'])
+
+
+
+# plot model. These statements are optional. 
+# If your environment cannot plot model, 
+# you can skip the statement.
+# plot_model(my_model)
+my_model.summary()
+
+
+# Train the model
+my_epochs = 100
+my_logs = my_model.fit(my_x_train_c1, my_y_train_categ, batch_size = 128, \
+                 epochs = my_epochs, verbose = 1, \
+                 validation_data= (my_x_test_c1, my_y_test_categ))
+
+# Save
+# You can load your model by running
+#   my_model = models.load_model('my_model_mnist_cnn1.h5')
+my_model.save('my_model_mnist_cnn_v2.h5')
+
+# Get the prediction from the trained model
+# In this case, the input argument (my_x_test_c1) must be in shape 
+# of (something, 28, 28, 1). Even to predict one picture, the shape needs to be
+# (1, 28, 28, 1). 
+# The function ".predict" can be omitted: 
+# my_y_test_prediction = my_model(my_x_test_c1)
+my_y_test_prediction = my_model.predict(my_x_test_c1)
+
+
+# Get the prediction from the trained model
+my_y_test_prediction = my_model.predict(my_x_test_c1)
+# plot it. 
+my_imshow_subplot(3, 6, my_x_test, my_y_test_prediction, my_start_index=0, my_font_size=12)
+
+
+# plot level 0
+my_layer = 0
+my_axes=[]
+my_fig = plt.figure()
+my_depth_filter = my_model.layers[my_layer].get_weights()[0].shape[2]
+my_num_filter = my_model.layers[my_layer].get_weights()[0].shape[3]
+for my_i in range(my_depth_filter):
+    for my_j in range(my_num_filter):
+        my_idx = my_j + my_i * my_num_filter
+        my_axes.append(my_fig.add_subplot(my_depth_filter, my_num_filter, my_idx + 1))
+        plt.imshow(my_model.layers[my_layer].get_weights()[0][:,:,my_i,my_j], cmap = 'gray')
+        my_axes[my_idx].axes.xaxis.set_visible(False)
+        my_axes[my_idx].axes.yaxis.set_visible(False)
